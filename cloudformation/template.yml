@@ -24,9 +24,8 @@ Resources:
   AppBucket:
     Type: AWS::S3::Bucket
     Properties:
-      AccessControl: PublicRead
-      WebsiteConfiguration:
-        IndexDocument: index.html
+      AccessControl: Private
+      BucketName: bev-ticketing-ecomapp.xyz
 
   # https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-s3-policy.html
   AppBucketPolicy:
@@ -38,8 +37,16 @@ Resources:
         Statement:
           - Sid: PublicReadForGetBucketObjects
             Effect: Allow
-            Principal: "*"
             Action: "s3:GetObject"
+            Principal:
+              AWS:
+                !Join [
+                  "",
+                  [
+                    "arn:aws:iam::cloudfront:user/CloudFront Origin Access Identity ",
+                    !Ref OriginAccessIdentity,
+                  ],
+                ]
             Resource: !Join
               - ""
               - - "arn:aws:s3:::"
@@ -60,8 +67,8 @@ Resources:
     Properties:
       DistributionConfig:
         Origins:
-          - DomainName: !Sub ${AppBucket}.s3.amazonaws.com
-            Id: myS3Origin
+          - DomainName: !GetAtt AppBucket.RegionalDomainName
+            Id: TwitterS3Origin
             S3OriginConfig:
               OriginAccessIdentity: !Sub origin-access-identity/cloudfront/${OriginAccessIdentity}
         Enabled: "true"
@@ -81,7 +88,7 @@ Resources:
             - HEAD
             - OPTIONS
           Compress: "true"
-          TargetOriginId: myS3Origin
+          TargetOriginId: TwitterS3Origin
           ForwardedValues:
             QueryString: "false"
             Cookies:
@@ -90,6 +97,7 @@ Resources:
         PriceClass: PriceClass_100
         ViewerCertificate:
           AcmCertificateArn: !Ref AcmCertArn
+          MinimumProtocolVersion: TLSv1.2_2018 # recommended value if there is no browser support issue
           SslSupportMethod: sni-only
 
   # https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-route53-recordsetgroup.html
